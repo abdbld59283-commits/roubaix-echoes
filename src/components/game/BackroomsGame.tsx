@@ -159,6 +159,7 @@ export function BackroomsGame() {
     if (phase === "intro") { startDrone("intro"); startMusic("intro"); return () => { stopDrone(); stopMusic(); }; }
     if (phase === "play" || phase === "arrival" || phase === "finale") { startMusic(quest.world); return () => stopMusic(); }
     stopMusic();
+    return undefined;
   }, [phase, quest.world]);
   useEffect(() => { setMusicTension(chasing ? 1 : 0); }, [chasing]);
   // Journal: wall clues of the current quest are noted when it starts.
