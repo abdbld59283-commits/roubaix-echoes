@@ -22,7 +22,9 @@ import { QUESTS } from "@/game/quests";
 import { Button as ControlButton } from "@/components/ui/button";
 import { Weapon, type Ammo } from "./Weapon";
 import { Arrival } from "./Arrival";
-import { PathGuide } from "./PathGuide";
+import { WallClues } from "./WallClues";
+import { IntroCity, INTRO_LINES, Typewriter } from "./Intro";
+import { Rift } from "./Rift";
 import { MissionPickup, SurvivorCamp } from "./SurvivorCamp";
 import { SURVIVORS, missionComplete } from "@/game/survivors";
 import type { Target } from "@/game/combat";
@@ -30,7 +32,7 @@ import { EnemyCamp, GroundSupply, SurvivorTeam } from "./Expedition";
 import { supplyReward, silexCells, canLeaveTundra, applyBrigandHit, PLAYER_HIT_POINTS, SILEX_REQUIRED, TEAM_SIZE } from "@/game/expedition";
 import { Finale } from "./Finale";
 
-type Phase = "title" | "brief" | "play" | "arrival" | "finale" | "cleared" | "gameover" | "victory";
+type Phase = "title" | "intro" | "rift" | "brief" | "play" | "arrival" | "finale" | "cleared" | "gameover" | "victory";
 
 const MAX_LIVES = 5;
 
@@ -38,6 +40,9 @@ export function BackroomsGame() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<Phase>("title");
   const [muted, setMuted] = useState(false);
+  // Per-game random salt: quest goals, monsters and pickups move every new game.
+  const [salt, setSalt] = useState(1);
+  const newSalt = () => setSalt(1 + Math.floor(Math.random() * 100000));
   const [pickupEcho, setPickupEcho] = useState(0);
   const [index, setIndex] = useState(0);
   const [lives, setLives] = useState(3);
@@ -111,8 +116,8 @@ export function BackroomsGame() {
   }, [phase, attempt, index]);
 
   const world = useMemo(
-    () => buildWorld(quest.world, (index + 1) * 1000 + attempt * 37 + 7, quest.monsters, index === 1),
-    [quest, index, attempt],
+    () => buildWorld(quest.world, (index + 1) * 1000 + attempt * 37 + 7 + salt * 7919, quest.monsters, index === 1),
+    [quest, index, attempt, salt],
   );
 
   const spawn = useMemo(() => cellToWorld(world.size, world.spawn.x, world.spawn.z), [world]);
@@ -250,6 +255,7 @@ export function BackroomsGame() {
   const restartGame = () => {
     setIndex(0);
     setLives(3);
+    newSalt();
     setAttempt((a) => a + 1);
     setPhase("brief");
   };
@@ -259,8 +265,9 @@ export function BackroomsGame() {
       {(phase === "title" || phase === "brief") && <EchoBackdrop />}
       <ControlButton variant="ghost" size="icon" className="audio-toggle" aria-label={muted ? "Activer le son" : "Couper le son"} title={muted ? "Activer le son" : "Couper le son"} aria-pressed={muted} onClick={() => { setAudioMuted(!muted); setMuted(v => !v); }}>{muted ? <VolumeX /> : <Volume2 />}</ControlButton>
       {phase !== "title" && (
-        <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 76, near: 0.1, far: 120 }}>
+        <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 76, near: 0.1, far: 160 }}>
           <Suspense fallback={null}>
+            {phase === "intro" ? <IntroCity onFinish={() => setPhase("brief")} /> : phase === "rift" ? <Rift onFinish={() => setPhase("brief")} /> : <>
             {quest.world === "backrooms" ? (
               <Backrooms world={world} playerPos={playerPos} />
             ) : quest.world === "tundra" ? (
@@ -276,7 +283,7 @@ export function BackroomsGame() {
             {playing && quest.world === "tundra" && world.supplyCells?.map((cell, i) => <GroundSupply key={`supply-${attempt}-${i}`} world={world} cell={cell} index={i} playerPos={playerPos} active={dialogue === null && !attacked} onPickup={onSupply} supplies={supplies} />)}
             {playing && world.brigandCells?.map((cell, i) => <Monster key={`brigand-${attempt}-${i}`} id={`brigand-${attempt}-${i}`} kind="brigand" world={world} cell={cell} speed={3.4} playerPos={playerPos} onCatch={onMonsterCatch} threats={threats} attack={attack} targets={targets} onKill={onBrigandKill} active={dialogue === null} onShootPlayer={onShootPlayer} allies={allies} allyHits={allyHits} />)}
             {playing && world.bossCell && <Monster key={`boss-${attempt}`} id={`boss-${attempt}`} kind="boss" world={world} cell={world.bossCell} speed={3.2} playerPos={playerPos} onCatch={onMonsterCatch} threats={threats} attack={attack} targets={targets} onKill={onKill} pale fires={fires} active={dialogue === null} onBoss={setBoss} />}
-            {playing && index === 1 && <PathGuide world={world} />}
+            {playing && quest.world === "backrooms" && <WallClues key={`clues-${index}-${attempt}`} world={world} title={quest.objective.toUpperCase()} every={index === 1 ? 1 : 3} />}
             {phase === "finale" || phase === "victory" ? <Finale survivors={team} onFinish={() => { document.exitPointerLock?.(); setPhase("victory"); }} /> : phase === "arrival" ? <Arrival onFinish={finishArrival} /> : <Player world={world} look={look} keys={keys} playerPos={playerPos} shake={shake} attack={attack} active={playing && dialogue === null} />}
             <Weapon world={world} targets={targets} active={playing && dialogue === null} attack={attack} ammo={ammo} onAmmo={setAmmoView} reinforced={reinforced} />
             {playing && mission !== null && SURVIVORS[mission]?.kind === "collect" && pickupPositions.map((position, i) => <MissionPickup key={`${attempt}-${i}`} position={position} playerPos={playerPos} onCollect={onCollect} allies={following ? allies : undefined} />)}
@@ -312,6 +319,7 @@ export function BackroomsGame() {
                 />
               ))}
             {playing && <ThreatMonitor threats={threats} attack={attack} onChase={setChasing} />}
+            </>}
           </Suspense>
         </Canvas>
       )}
@@ -347,12 +355,16 @@ export function BackroomsGame() {
       </div>}
       {phase === "arrival" && <><div className="cinema-bar top-0" /><div className="cinema-bar bottom-0" /><div className="pointer-events-none fixed inset-x-4 bottom-[15%] z-40 text-center text-hud"><p className="font-display text-3xl">ROUBAIX · 2026</p><p className="mt-2 text-sm">Aëla : « Toutes ces maisons… et cette lumière. Nous sommes vraiment de l'autre côté. »</p></div><ControlButton className="fixed right-5 top-[12%] z-40" onClick={finishArrival}>Passer</ControlButton></>}
 
+      {(phase === "intro" || phase === "rift") && <><div className="cinema-bar top-0" /><div className="cinema-bar bottom-0" />
+        {phase === "intro" ? <Typewriter lines={INTRO_LINES} /> : <div className="pointer-events-none fixed inset-x-4 bottom-[15%] z-40 text-center text-hud"><p className="font-display text-3xl text-ice rift-title">BRÈCHE TEMPORELLE</p><p className="mt-2 text-sm">Le sol se dérobe. Les couloirs s'effacent. Roubaix, −10 000.</p></div>}
+        <ControlButton className="fixed right-5 top-[12%] z-40" onClick={() => setPhase("brief")}>Passer</ControlButton></>}
+
       {phase === "title" && (
         <Panel title>
           <div className="echo-eyebrow"><Radio size={14} /> SIGNAL RETROUVÉ · ROUBAIX</div>
           <h1 className="echo-title" data-text="ROUBAIX ECHOES">ROUBAIX<br /><span>ECHOES</span></h1>
           <p className="echo-tagline">La réalité n’a pas dit son dernier mot.</p>
-          <Button onClick={() => setPhase("brief")}>Commencer l’enquête <ArrowRight /></Button>
+          <Button onClick={() => { newSalt(); setPhase("intro"); }}>Commencer l’enquête <ArrowRight /></Button>
           <div className="echo-title-stats"><span><b>03</b> MONDES</span><span><b>10</b> QUÊTES</span><span><b>19</b> SURVIVANTS</span></div>
           <p className="echo-title-footer">BACKROOMS · −10 000 · ROUBAIX 2026</p>
         </Panel>
@@ -387,8 +399,9 @@ export function BackroomsGame() {
           </div>
           <Button
             onClick={() => {
+              const fromBackrooms = quest.world === "backrooms" && QUESTS[index + 1]?.world === "tundra";
               setIndex((i) => i + 1);
-              setPhase("brief");
+              setPhase(fromBackrooms ? "rift" : "brief");
             }}
           >
             Continuer
