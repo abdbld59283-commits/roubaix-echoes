@@ -22,14 +22,3 @@ export function clueMarks(world: World, route: { x: number; z: number }[], every
   }
   return marks;
 }
-
-/** Open cells with exactly one open neighbour: hidden rooms and corridor ends. */
-export function deadEnds(world: World) {
-  const list: { x: number; z: number }[] = [];
-  for (let z = 1; z < world.size - 1; z++) for (let x = 1; x < world.size - 1; x++) {
-    if (at(world, x, z)) continue;
-    const open = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([ddx = 0, ddz = 0]) => !at(world, x + ddx, z + ddz)).length;
-    if (open === 1) list.push({ x, z });
-  }
-  return list;
-}

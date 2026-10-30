@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import { strictEqual, ok } from "node:assert";
 import * as THREE from "three";
-import { buildWorld, routeToGoal } from "./maze";
+import { at, buildWorld, routeToGoal } from "./maze";
+import { clueMarks } from "./clues";
 import { shootTarget } from "./combat";
 import { missionComplete } from "./survivors";
 import { QUESTS } from "./quests";
@@ -28,13 +29,17 @@ describe("weapons, expanded tundra and accessible level two", () => {
       ok(routeToGoal(world, world.spawn, world.camp).length > 1);
     }
   });
-  it("level two keeps its two monsters but slows them and gives a continuous route", () => {
+  it("level two keeps its two monsters but slows them and hides its goal in a reachable side room", () => {
     strictEqual(QUESTS[1]?.monsters, 2);
     strictEqual(QUESTS[1]?.monsterSpeed, 2);
     for (let attempt = 0; attempt < 20; attempt++) {
-      const route = routeToGoal(buildWorld("backrooms", 2007 + attempt * 37, 2, true));
+      const world = buildWorld("backrooms", 2007 + attempt * 37, 2, true);
+      const route = routeToGoal(world);
       ok(route.length > 1);
-      ok(route.length <= 15);
+      const { x, z } = world.goal;
+      const open = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx = 0, dz = 0]) => !at(world, x + dx, z + dz)).length;
+      strictEqual(open, 1);
+      ok(clueMarks(world, route).length > 0);
     }
   });
   it("survivor collection and hunt missions require their two objectives", () => {
@@ -48,5 +53,12 @@ describe("weapons, expanded tundra and accessible level two", () => {
     strictEqual(world.goal.x, Math.floor(world.size / 2));
     strictEqual(world.goal.z, Math.floor(world.size / 2));
     ok(routeToGoal(world).length > 1);
+  });
+});
+
+describe("procedural spawns", () => {
+  it("different run seeds move the backrooms goal", () => {
+    const goals = new Set([1, 2, 3, 4, 5, 6].map(salt => { const g = buildWorld("backrooms", 1007 + salt * 7919, 1).goal; return `${g.x}:${g.z}`; }));
+    ok(goals.size >= 3);
   });
 });
