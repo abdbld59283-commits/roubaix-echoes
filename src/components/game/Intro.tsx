@@ -33,7 +33,7 @@ function Car({ position, color, speed }: { position: [number, number, number]; c
       <mesh position={[0, 1.15, -0.2]} castShadow><boxGeometry args={[1.6, 0.55, 2.2]} /><meshStandardMaterial color="#1a2026" metalness={0.9} roughness={0.1} /></mesh>
       {[-0.7, 0.7].map(x => <mesh key={x} position={[x, 0.6, 2.12]}><boxGeometry args={[0.35, 0.18, 0.05]} /><meshBasicMaterial color="#fff2c4" /></mesh>)}
       {[-0.7, 0.7].map(x => <mesh key={`r${x}`} position={[x, 0.6, -2.12]}><boxGeometry args={[0.35, 0.15, 0.05]} /><meshBasicMaterial color="#ff2a1a" /></mesh>)}
-      {[[-0.9, 1.4], [0.9, 1.4], [-0.9, -1.4], [0.9, -1.4]].map(([x, z]) => <mesh key={`${x}${z}`} position={[x, 0.32, z]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.32, 0.32, 0.25, 12]} /><meshStandardMaterial color="#111" /></mesh>)}
+      {([[-0.9, 1.4], [0.9, 1.4], [-0.9, -1.4], [0.9, -1.4]] as const).map(([x, z]) => <mesh key={`${x}${z}`} position={[x, 0.32, z]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.32, 0.32, 0.25, 12]} /><meshStandardMaterial color="#111" /></mesh>)}
     </group>
   );
 }
@@ -66,12 +66,6 @@ export function IntroCity({ onFinish }: { onFinish: () => void }) {
   const paving = useMemo(() => { const t = asphaltTexture(24); return t; }, []);
   const elapsed = useRef(0);
   const done = useRef(false);
-  const mist = useRef<THREE.Points>(null);
-  const mistPositions = useMemo(() => {
-    const a = new Float32Array(600 * 3);
-    for (let i = 0; i < 600; i++) { a[i * 3] = (Math.random() - 0.5) * 30; a[i * 3 + 1] = Math.random() * 2.2; a[i * 3 + 2] = (Math.random() - 0.5) * 110; }
-    return a;
-  }, []);
 
   useFrame(({ camera }, raw) => {
     const d = Math.min(raw, 0.05);
@@ -81,7 +75,6 @@ export function IntroCity({ onFinish }: { onFinish: () => void }) {
     // High crane shot sweeping down the street toward the mill door.
     camera.position.set(Math.sin(e * 2.2) * 5, 14 - e * 12.3, 45 - e * 76);
     camera.lookAt(Math.sin(e * 2.2) * 2, 2 - e * 0.4, 20 - e * 66);
-    if (mist.current) mist.current.rotation.y += d * 0.01;
     if (elapsed.current >= INTRO_DURATION && !done.current) { done.current = true; onFinish(); }
   });
 
@@ -133,10 +126,6 @@ export function IntroCity({ onFinish }: { onFinish: () => void }) {
         ))}
       </Suspense>
 
-      <points ref={mist}>
-        <bufferGeometry><bufferAttribute attach="attributes-position" args={[mistPositions, 3]} /></bufferGeometry>
-        <pointsMaterial color="#c9b9b4" size={1.6} transparent opacity={0.08} depthWrite={false} sizeAttenuation />
-      </points>
     </>
   );
 }
