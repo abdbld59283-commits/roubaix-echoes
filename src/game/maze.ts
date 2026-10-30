@@ -200,17 +200,24 @@ export function generateRoubaix(size: number, seed: number): World {
   return { size, grid, spawn, goal, monsterCells: [], fireCells: [] };
 }
 
-export function buildWorld(kind: "backrooms" | "tundra" | "roubaix", seed: number, monsters: number, guided = false): World {
+/** Backrooms openness: lower means narrower, more twisted corridors. */
+export const BACKROOMS_OPENNESS = 0.1;
+
+export function buildWorld(kind: "backrooms" | "tundra" | "roubaix", seed: number, monsters: number, secret = false): World {
   const world =
     kind === "backrooms"
-      ? generateMaze(21, seed, 0.22)
+      ? generateMaze(21, seed, BACKROOMS_OPENNESS)
       : kind === "tundra"
         ? generateTundra(165, seed)
         : generateRoubaix(25, seed);
-  if (kind === "backrooms" && guided) {
-    const path = routeToGoal(world);
-    const nearer = path[Math.min(path.length - 1, 10 + Math.abs(seed % 5))];
-    if (nearer) world.goal = { ...nearer };
+  if (kind === "backrooms" && secret) {
+    // Quest 2 hides in a side room: a random dead end, away from the spawn, off the main corridor.
+    const rnd = mulberry32(seed * 31 + 5);
+    const ends = deadEndCells(world).map(c => ({ ...c, d: routeToGoal(world, world.spawn, c).length })).filter(c => c.d > 0);
+    const max = Math.max(0, ...ends.map(c => c.d));
+    const far = ends.filter(c => c.d >= max * 0.5 && !(c.x === world.goal.x && c.z === world.goal.z));
+    const pick = far[Math.floor(rnd() * far.length)];
+    if (pick) world.goal = { x: pick.x, z: pick.z };
   }
   world.monsterCells = pickMonsterCells(world, monsters, seed);
   return world;
@@ -251,4 +258,16 @@ export function routeToGoal(world: World, start = world.spawn, goal = world.goal
     }
   }
   return [];
+}
+
+/** Open cells with exactly one open neighbour (excluding the spawn): side rooms and corridor ends. */
+function deadEndCells(world: World) {
+  const list: { x: number; z: number }[] = [];
+  for (let z = 1; z < world.size - 1; z++) for (let x = 1; x < world.size - 1; x++) {
+    if (at(world, x, z) || (x === world.spawn.x && z === world.spawn.z)) continue;
+    let open = 0;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) if (!at(world, x + dx, z + dz)) open++;
+    if (open === 1) list.push({ x, z });
+  }
+  return list;
 }
