@@ -6,16 +6,20 @@ import { CELL, at, cellToWorld, worldToCell, type World } from "@/game/maze";
 import { iceTexture, snowTexture } from "@/game/textures";
 
 const DUMMY = new THREE.Object3D();
+/** Metres around the camera kept free of snowflakes so nothing blocks the view. */
+const CLEAR_RADIUS = 4.5;
 
 function Blizzard({ playerPos, storm }: { playerPos: THREE.Vector3; storm: boolean }) {
-  const count = storm ? 4000 : 1800;
+  const count = storm ? 2600 : 1400;
   const points = useRef<THREE.Points>(null);
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 60;
+      // Flakes live in a ring around the player, never inside the camera's clear radius.
+      const r = CLEAR_RADIUS + Math.random() * (30 - CLEAR_RADIUS), a = Math.random() * Math.PI * 2;
+      arr[i * 3] = Math.cos(a) * r;
       arr[i * 3 + 1] = Math.random() * 18;
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 60;
+      arr[i * 3 + 2] = Math.sin(a) * r;
     }
     return arr;
   }, [count]);
@@ -34,6 +38,8 @@ function Blizzard({ playerPos, storm }: { playerPos: THREE.Vector3; storm: boole
       arr[i * 3] = (arr[i * 3] ?? 0) + wind * delta;
       if ((arr[i * 3 + 1] ?? 0) < 0) arr[i * 3 + 1] = 18;
       if ((arr[i * 3] ?? 0) > 30) arr[i * 3] = -30;
+      const x = arr[i * 3] ?? 0, z = arr[i * 3 + 2] ?? 0, d = Math.hypot(x, z);
+      if (d < CLEAR_RADIUS) { const k = CLEAR_RADIUS / Math.max(d, 0.01); arr[i * 3] = x * k; arr[i * 3 + 2] = z * k; }
     }
     attr.needsUpdate = true;
     p.position.set(playerPos.x, 0, playerPos.z);
@@ -46,9 +52,9 @@ function Blizzard({ playerPos, storm }: { playerPos: THREE.Vector3; storm: boole
       </bufferGeometry>
       <pointsMaterial
         color="#ffffff"
-        size={storm ? 0.16 : 0.1}
+        size={storm ? 0.09 : 0.07}
         transparent
-        opacity={storm ? 0.95 : 0.75}
+        opacity={storm ? 0.8 : 0.65}
         sizeAttenuation
         depthWrite={false}
       />

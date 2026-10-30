@@ -324,3 +324,16 @@ body { font-family: var(--font-mono); }
   .echo-transition { animation-duration: 0.01s; }
   .echo-button:hover { transform: none; }
 }
+
+/* Cinematics & in-world clues */
+.typewriter { position: fixed; left: 50%; bottom: 14%; transform: translateX(-50%); z-index: 40; width: min(720px, calc(100% - 40px)); color: var(--hud); font: 14px/1.6 var(--font-mono); pointer-events: none; text-shadow: 0 1px 8px var(--game-dark); }
+.typewriter p { margin: 0 0 6px; }
+.typewriter-stamp { color: var(--mustard); font-size: 11px; letter-spacing: 0.08em; }
+.typewriter-caret { color: var(--ice); animation: caret 1s steps(2) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+.rift-title { text-shadow: 0 0 18px var(--ice), 0 0 42px var(--ice); }
+.graffiti { display: inline-block; font: 900 64px/1 var(--font-display); color: var(--mustard); text-shadow: 0 0 6px color-mix(in oklab, var(--mustard) 60%, transparent); transform: rotate(-4deg); opacity: 0.88; white-space: nowrap; user-select: none; }
+.graffiti-arrow { font-size: 110px; color: var(--blood); text-shadow: 0 0 10px color-mix(in oklab, var(--blood) 50%, transparent); }
+.chalk { display: inline-block; max-width: 340px; text-align: center; font: 700 30px/1.15 var(--font-display); color: color-mix(in oklab, var(--hud) 85%, transparent); text-shadow: 1px 1px 0 color-mix(in oklab, var(--game-dark) 40%, transparent); transform: rotate(2deg); user-select: none; }
+.wall-sign { font: 900 48px/1 var(--font-display); color: var(--mustard); white-space: nowrap; text-shadow: 0 0 14px var(--mustard); }
+html, body { overflow-x: hidden; max-width: 100vw; }

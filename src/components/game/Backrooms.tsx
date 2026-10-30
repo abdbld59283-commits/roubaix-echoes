@@ -14,6 +14,8 @@ export function Backrooms({ world, playerPos }: { world: World; playerPos: THREE
   const ceiling = useMemo(() => ceilingTexture(22), []);
   const lamp = useRef<THREE.PointLight>(null);
   const flickerLight = useRef<THREE.PointLight>(null);
+  const ambient = useRef<THREE.AmbientLight>(null);
+  const blackout = useRef({ next: 6, until: 0 });
 
   const cells = useMemo(() => {
     const list: [number, number][] = [];
@@ -40,9 +42,14 @@ export function Backrooms({ world, playerPos }: { world: World; playerPos: THREE
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
+    // Visual trap: the neon dies for a moment every 7-15 s.
+    const b = blackout.current;
+    if (t > b.next) { b.until = t + 0.35 + Math.random() * 0.9; b.next = t + 7 + Math.random() * 8; }
+    const dark = t < b.until;
+    if (ambient.current) ambient.current.intensity = dark ? 0.08 : 1.0;
     if (lamp.current) {
       lamp.current.position.set(playerPos.x, 2.7, playerPos.z);
-      lamp.current.intensity = 22 + Math.sin(t * 13) * 2;
+      lamp.current.intensity = dark ? 3 : 22 + Math.sin(t * 13) * 2;
     }
     if (flickerLight.current) {
       const f = Math.random() < 0.06 ? 0.05 : 1;
@@ -56,8 +63,8 @@ export function Backrooms({ world, playerPos }: { world: World; playerPos: THREE
   return (
     <>
       <color attach="background" args={["#0d0b05"]} />
-      <fogExp2 attach="fog" args={["#3a3014", 0.04]} />
-      <ambientLight intensity={1.2} color="#e8d08a" />
+      <fogExp2 attach="fog" args={["#3a3014", 0.055]} />
+      <ambientLight ref={ambient} intensity={1.0} color="#e8d08a" />
       <pointLight ref={lamp} color="#ffdf9b" distance={26} decay={1.5} />
       <pointLight ref={flickerLight} color="#fff1bb" distance={12} decay={2} />
 
