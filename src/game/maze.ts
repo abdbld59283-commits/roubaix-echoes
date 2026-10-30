@@ -259,3 +259,15 @@ export function routeToGoal(world: World, start = world.spawn, goal = world.goal
   }
   return [];
 }
+
+/** Open cells with exactly one open neighbour (excluding the spawn): side rooms and corridor ends. */
+function deadEndCells(world: World) {
+  const list: { x: number; z: number }[] = [];
+  for (let z = 1; z < world.size - 1; z++) for (let x = 1; x < world.size - 1; x++) {
+    if (at(world, x, z) || (x === world.spawn.x && z === world.spawn.z)) continue;
+    let open = 0;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) if (!at(world, x + dx, z + dz)) open++;
+    if (open === 1) list.push({ x, z });
+  }
+  return list;
+}
