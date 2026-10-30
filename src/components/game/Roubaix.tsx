@@ -5,9 +5,10 @@ import { CELL, at, cellToWorld, type World } from "@/game/maze";
 import { asphaltTexture, brickTexture } from "@/game/textures";
 import { useScenePalette } from "@/game/scenePalette";
 import { AssetModel } from "./AssetModel";
+import { Dust } from "./Atmosphere";
 
 const DUMMY = new THREE.Object3D();
-export function Roubaix({ world, clear = false }: { world: World; playerPos: THREE.Vector3; clear?: boolean }) {
+export function Roubaix({ world, playerPos, clear = false }: { world: World; playerPos: THREE.Vector3; clear?: boolean }) {
   const palette = useScenePalette();
   const brick = useMemo(() => brickTexture(1), []);
   const paving = useMemo(() => asphaltTexture(18), []);
@@ -29,6 +30,7 @@ export function Roubaix({ world, clear = false }: { world: World; playerPos: THR
   if (!palette) return null;
   return <>
     <color attach="background" args={[palette.sky]} />
+    <Dust playerPos={playerPos} color="#ffd9a8" count={180} height={6} opacity={0.35} />
     <fog attach="fog" args={[palette.sky, clear ? 140 : 70, clear ? 320 : 150]} />
     <hemisphereLight args={[palette.sky, palette.stone, clear ? 2.8 : 2]} />
     <directionalLight position={[-25, 35, 20]} color={palette.sun} intensity={clear ? 4.2 : 3} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-35} shadow-camera-right={35} shadow-camera-top={35} shadow-camera-bottom={-35} />

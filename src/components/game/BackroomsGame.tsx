@@ -14,7 +14,9 @@ import { ThreatMonitor } from "./ThreatMonitor";
 import { Campfires, type FireState } from "./Campfires";
 import { Roubaix } from "./Roubaix";
 import { Tundra } from "./Tundra";
-import { chime, playCatchSound, scream, startDrone, stopDrone, setAudioMuted, interactionSound } from "@/game/audio";
+import { chime, playCatchSound, scream, startDrone, stopDrone, setAudioMuted, interactionSound, setAudioVolume, startMusic, stopMusic, setMusicTension } from "@/game/audio";
+import { addEntry, clearSave, loadSave, writeSave, type JournalEntry, type SaveData } from "@/game/save";
+import { BookOpen } from "lucide-react";
 import type { AttackView, Threat } from "@/game/threat";
 import { useKeyboard, usePointerLook } from "@/game/input";
 import { buildWorld, cellToWorld, spawnYaw } from "@/game/maze";
@@ -42,7 +44,13 @@ export function BackroomsGame() {
   const [muted, setMuted] = useState(false);
   // Per-game random salt: quest goals, monsters and pickups move every new game.
   const [salt, setSalt] = useState(1);
-  const newSalt = () => setSalt(1 + Math.floor(Math.random() * 100000));
+  const newSalt = () => { const v = 1 + Math.floor(Math.random() * 100000); setSalt(v); return v; };
+  const [volume, setVolume] = useState(0.8);
+  const [journal, setJournal] = useState<JournalEntry[]>([]);
+  const [journalOpen, setJournalOpen] = useState(false);
+  const [saved, setSaved] = useState<SaveData | null>(null);
+  useEffect(() => { setSaved(loadSave()); }, []);
+  const note = useCallback((entry: JournalEntry) => setJournal(j => addEntry(j, entry)), []);
   const [pickupEcho, setPickupEcho] = useState(0);
   const [index, setIndex] = useState(0);
   const [lives, setLives] = useState(3);
@@ -94,7 +102,7 @@ export function BackroomsGame() {
   const playing = phase === "play";
 
   const keys = useKeyboard();
-  const { look } = usePointerLook(containerRef, playing && dialogue === null);
+  const { look } = usePointerLook(containerRef, playing && dialogue === null && !journalOpen);
   const shake = useRef(0);
   const invUntil = useRef(0);
   const playerPos = useMemo(() => new THREE.Vector3(), []);
@@ -145,6 +153,23 @@ export function BackroomsGame() {
     look.current.pitch = 0;
     invUntil.current = performance.now() + 1500;
   }, [spawn, playerPos, look, phase, world, quest.world]);
+
+  // Adaptive music: intro theme during the opening film, world theme in play.
+  useEffect(() => {
+    if (phase === "intro") { startDrone("intro"); startMusic("intro"); return () => { stopDrone(); stopMusic(); }; }
+    if (phase === "play" || phase === "arrival" || phase === "finale") { startMusic(quest.world); return () => stopMusic(); }
+    stopMusic();
+  }, [phase, quest.world]);
+  useEffect(() => { setMusicTension(chasing ? 1 : 0); }, [chasing]);
+  // Journal: wall clues of the current quest are noted when it starts.
+  useEffect(() => {
+    if (!playing) return;
+    note({ title: `Quête ${index + 1} · ${quest.title}`, text: quest.world === "backrooms" ? `Inscrit à la craie : « ${quest.objective} »` : quest.objective });
+  }, [playing, index, quest, note]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => { if (e.code === "KeyJ" && !e.repeat && phase !== "title" && phase !== "intro") { document.exitPointerLock?.(); setJournalOpen(v => !v); } };
+    window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key);
+  }, [phase]);
 
   // Ambience per world.
   useEffect(() => {
@@ -256,6 +281,8 @@ export function BackroomsGame() {
     setIndex(0);
     setLives(3);
     newSalt();
+    setJournal([]);
+    clearSave(); setSaved(null);
     setAttempt((a) => a + 1);
     setPhase("brief");
   };
@@ -264,6 +291,13 @@ export function BackroomsGame() {
     <div ref={containerRef} data-phase={phase} className="game-shell fixed inset-0 cursor-crosshair bg-game-dark" onClickCapture={() => interactionSound()}>
       {(phase === "title" || phase === "brief") && <EchoBackdrop />}
       <ControlButton variant="ghost" size="icon" className="audio-toggle" aria-label={muted ? "Activer le son" : "Couper le son"} title={muted ? "Activer le son" : "Couper le son"} aria-pressed={muted} onClick={() => { setAudioMuted(!muted); setMuted(v => !v); }}>{muted ? <VolumeX /> : <Volume2 />}</ControlButton>
+      <input type="range" min={0} max={1} step={0.05} value={volume} aria-label="Volume" className="volume-slider" onClick={e => e.stopPropagation()} onChange={e => { const v = Number(e.target.value); setVolume(v); setAudioVolume(v); }} />
+      {phase !== "title" && phase !== "intro" && phase !== "rift" && <ControlButton variant="ghost" size="icon" className="journal-toggle" aria-label="Journal d'enquête (J)" title="Journal d'enquête (J)" onClick={e => { e.stopPropagation(); document.exitPointerLock?.(); setJournalOpen(v => !v); }}><BookOpen /></ControlButton>}
+      {journalOpen && <div className="journal-panel" role="dialog" aria-label="Journal d'enquête" onClick={e => e.stopPropagation()}>
+        <p className="font-display text-2xl text-mustard">JOURNAL D'ENQUÊTE</p><p className="text-xs text-hud/60">{journal.length} indice{journal.length > 1 ? "s" : ""} · touche J</p>
+        <ol>{journal.map((e, i) => <li key={i}><b>{e.title}</b><span>{e.text}</span></li>)}</ol>
+        <ControlButton variant="ghost" onClick={() => setJournalOpen(false)}>Fermer</ControlButton>
+      </div>}
       {phase !== "title" && (
         <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 76, near: 0.1, far: 160 }}>
           <Suspense fallback={null}>
@@ -283,7 +317,7 @@ export function BackroomsGame() {
             {playing && quest.world === "tundra" && world.supplyCells?.map((cell, i) => <GroundSupply key={`supply-${attempt}-${i}`} world={world} cell={cell} index={i} playerPos={playerPos} active={dialogue === null && !attacked} onPickup={onSupply} supplies={supplies} />)}
             {playing && world.brigandCells?.map((cell, i) => <Monster key={`brigand-${attempt}-${i}`} id={`brigand-${attempt}-${i}`} kind="brigand" world={world} cell={cell} speed={3.4} playerPos={playerPos} onCatch={onMonsterCatch} threats={threats} attack={attack} targets={targets} onKill={onBrigandKill} active={dialogue === null} onShootPlayer={onShootPlayer} allies={allies} allyHits={allyHits} />)}
             {playing && world.bossCell && <Monster key={`boss-${attempt}`} id={`boss-${attempt}`} kind="boss" world={world} cell={world.bossCell} speed={3.2} playerPos={playerPos} onCatch={onMonsterCatch} threats={threats} attack={attack} targets={targets} onKill={onKill} pale fires={fires} active={dialogue === null} onBoss={setBoss} />}
-            {playing && quest.world === "backrooms" && <WallClues key={`clues-${index}-${attempt}`} world={world} title={quest.objective.toUpperCase()} every={index === 1 ? 1 : 3} />}
+            {playing && quest.world === "backrooms" && <WallClues key={`clues-${index}-${attempt}`} world={world} title={quest.objective.toUpperCase()} hint={`> ${quest.title.toUpperCase()}`} every={index === 1 ? 1 : 3} />}
             {phase === "finale" || phase === "victory" ? <Finale survivors={team} onFinish={() => { document.exitPointerLock?.(); setPhase("victory"); }} /> : phase === "arrival" ? <Arrival onFinish={finishArrival} /> : <Player world={world} look={look} keys={keys} playerPos={playerPos} shake={shake} attack={attack} active={playing && dialogue === null} />}
             <Weapon world={world} targets={targets} active={playing && dialogue === null} attack={attack} ammo={ammo} onAmmo={setAmmoView} reinforced={reinforced} />
             {playing && mission !== null && SURVIVORS[mission]?.kind === "collect" && pickupPositions.map((position, i) => <MissionPickup key={`${attempt}-${i}`} position={position} playerPos={playerPos} onCollect={onCollect} allies={following ? allies : undefined} />)}
@@ -364,7 +398,8 @@ export function BackroomsGame() {
           <div className="echo-eyebrow"><Radio size={14} /> SIGNAL RETROUVÉ · ROUBAIX</div>
           <h1 className="echo-title" data-text="ROUBAIX ECHOES">ROUBAIX<br /><span>ECHOES</span></h1>
           <p className="echo-tagline">La réalité n’a pas dit son dernier mot.</p>
-          <Button onClick={() => { newSalt(); setPhase("intro"); }}>Commencer l’enquête <ArrowRight /></Button>
+          {saved && <Button onClick={() => { setIndex(saved.index); setLives(saved.lives); setSalt(saved.salt); setJournal(saved.journal); setPhase("brief"); }}>Reprendre · quête {saved.index + 1}/10 <ArrowRight /></Button>}
+          <Button onClick={() => { newSalt(); setIndex(0); setLives(3); setJournal(INTRO_LINES.slice(1).map(text => ({ title: "Dossier Inès", text }))); clearSave(); setSaved(null); setPhase("intro"); }}>{saved ? "Nouvelle enquête" : "Commencer l’enquête"} <ArrowRight /></Button>
           <div className="echo-title-stats"><span><b>03</b> MONDES</span><span><b>10</b> QUÊTES</span><span><b>19</b> SURVIVANTS</span></div>
           <p className="echo-title-footer">BACKROOMS · −10 000 · ROUBAIX 2026</p>
         </Panel>
@@ -400,6 +435,9 @@ export function BackroomsGame() {
           <Button
             onClick={() => {
               const fromBackrooms = quest.world === "backrooms" && QUESTS[index + 1]?.world === "tundra";
+              const nextJournal = addEntry(journal, { title: `Quête ${index + 1} résolue`, text: quest.lore });
+              setJournal(nextJournal);
+              writeSave({ index: index + 1, lives, salt, journal: nextJournal });
               setIndex((i) => i + 1);
               setPhase(fromBackrooms ? "rift" : "brief");
             }}

@@ -3,6 +3,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { CELL, at, cellToWorld, type World } from "@/game/maze";
+import { Dust } from "./Atmosphere";
 import { carpetTexture, ceilingTexture, wallpaperTexture } from "@/game/textures";
 
 const WALL_H = 3.2;
@@ -79,6 +80,7 @@ export function Backrooms({ world, playerPos }: { world: World; playerPos: THREE
         <meshStandardMaterial map={ceiling} roughness={1} color="#c8bd94" />
       </mesh>
 
+      <Dust playerPos={playerPos} color="#ffe6a0" height={3} opacity={0.45} />
       <instancedMesh
         ref={meshRef}
         args={[undefined, undefined, Math.max(cells.length, 1)]}
