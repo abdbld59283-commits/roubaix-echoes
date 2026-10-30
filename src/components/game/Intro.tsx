@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { asphaltTexture, brickTexture } from "@/game/textures";
 import { AssetModel, MODELS } from "./AssetModel";
+import { Dust } from "./Atmosphere";
 
 /** Length of the opening fly-over, in seconds. */
 export const INTRO_DURATION = 26;
@@ -88,6 +89,7 @@ export function IntroCity({ onFinish }: { onFinish: () => void }) {
       <directionalLight position={[-30, 8, -40]} color="#ff8a4c" intensity={1.6} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-40} shadow-camera-right={40} shadow-camera-top={40} shadow-camera-bottom={-40} />
       <Environment resolution={64}><Lightformer intensity={1.4} color="#ff9a5e" position={[0, 6, -60]} scale={[60, 10, 1]} /><Lightformer intensity={0.6} color="#6d7f99" position={[0, 20, 0]} rotation-x={Math.PI / 2} scale={[40, 40, 1]} /></Environment>
 
+      <Dust color="#ffc48a" count={500} height={8} clear={0} opacity={0.5} />
       {/* wet cobbles reflect lamps */}
       <mesh rotation-x={-Math.PI / 2} receiveShadow><planeGeometry args={[60, 130]} /><meshStandardMaterial map={paving} color="#4a4549" roughness={0.25} metalness={0.35} /></mesh>
       {[-1, 1].map(s => <mesh key={s} position={[s * 6.2, 0.08, 0]} receiveShadow><boxGeometry args={[2.4, 0.16, 130]} /><meshStandardMaterial color="#5f5753" roughness={0.8} /></mesh>)}
