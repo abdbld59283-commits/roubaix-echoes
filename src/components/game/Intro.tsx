@@ -33,7 +33,7 @@ function Car({ position, color, speed }: { position: [number, number, number]; c
       <mesh position={[0, 1.15, -0.2]} castShadow><boxGeometry args={[1.6, 0.55, 2.2]} /><meshStandardMaterial color="#1a2026" metalness={0.9} roughness={0.1} /></mesh>
       {[-0.7, 0.7].map(x => <mesh key={x} position={[x, 0.6, 2.12]}><boxGeometry args={[0.35, 0.18, 0.05]} /><meshBasicMaterial color="#fff2c4" /></mesh>)}
       {[-0.7, 0.7].map(x => <mesh key={`r${x}`} position={[x, 0.6, -2.12]}><boxGeometry args={[0.35, 0.15, 0.05]} /><meshBasicMaterial color="#ff2a1a" /></mesh>)}
-      {[[-0.9, 1.4], [0.9, 1.4], [-0.9, -1.4], [0.9, -1.4]].map(([x, z]) => <mesh key={`${x}${z}`} position={[x, 0.32, z]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.32, 0.32, 0.25, 12]} /><meshStandardMaterial color="#111" /></mesh>)}
+      {([[-0.9, 1.4], [0.9, 1.4], [-0.9, -1.4], [0.9, -1.4]] as const).map(([x, z]) => <mesh key={`${x}${z}`} position={[x, 0.32, z]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.32, 0.32, 0.25, 12]} /><meshStandardMaterial color="#111" /></mesh>)}
     </group>
   );
 }
